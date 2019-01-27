@@ -1,4 +1,4 @@
-import platform
+from sys import platform
 from .network_commands import NetworkCommands
 
 

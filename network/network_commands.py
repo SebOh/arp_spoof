@@ -8,6 +8,8 @@ class NetworkCommands:
     def __init__(self):
         if network.is_windows():
             self.commands = NetworkCommandsWindows()
+        elif network.is_linux():
+            self.commands = NetworkCommandsLinux()
         pass
 
     def find_gateway(self):
@@ -62,4 +64,31 @@ class NetworkCommandsWindows:
         return False
 
 
+class NetworkCommandsLinux:
 
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def find_gateway():
+        """
+        Finds the current default gateway ip based on the 'ip route | grep default' command
+        :return: gateway ip if possible. Else None
+        """
+        ip_route_result = subprocess.check_output("ip route | grep default")
+        m = re.search("(?:default via )(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})", str(ip_route_result))
+        if m:
+            return m.group(1).strip()
+        return None
+
+    @staticmethod
+    def set_ipv4_forwarding(enabled=True):
+        """
+        Enable or disable ipv4 forwarding on your machine. Root/admin right is required
+        :param enabled: True or False
+        :return: None
+        """
+        if enabled:
+            subprocess.check_output("echo 1 > /proc/sys/net/ipv4/ip_forward")
+        else:
+            subprocess.check_output("echo 0 > /proc/sys/net/ipv4/ip_forward")

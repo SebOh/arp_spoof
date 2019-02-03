@@ -75,7 +75,7 @@ class NetworkCommandsLinux:
         Finds the current default gateway ip based on the 'ip route | grep default' command
         :return: gateway ip if possible. Else None
         """
-        ip_route_result = subprocess.check_output("ip route | grep default")
+        ip_route_result = subprocess.check_output(["ip route | grep default"], shell=True)
         m = re.search("(?:default via )(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})", str(ip_route_result))
         if m:
             return m.group(1).strip()
@@ -89,6 +89,6 @@ class NetworkCommandsLinux:
         :return: None
         """
         if enabled:
-            subprocess.check_output("echo 1 > /proc/sys/net/ipv4/ip_forward")
+            subprocess.check_output("echo 1 > /proc/sys/net/ipv4/ip_forward", shell=True)
         else:
-            subprocess.check_output("echo 0 > /proc/sys/net/ipv4/ip_forward")
+            subprocess.check_output("echo 0 > /proc/sys/net/ipv4/ip_forward", shell=True)
